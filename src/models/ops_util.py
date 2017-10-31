@@ -29,7 +29,7 @@ def _variable_with_weight_decay(name, shape, stddev, wd, use_xavier=True):
     initializer = tf.contrib.layers.xavier_initializer()
   else:
     initializer = tf.truncated_normal_initializer(stddev=stddev)
-  var = tf.get_variable(name, shape, initializer)
+  var = tf.get_variable(name, shape, initializer = initializer)
   if wd is not None:
     weight_decay = tf.multiply(tf.nn.l2_loss(var), wd, name='weight_loss')
     tf.add_to_collection('losses', weight_decay)
@@ -82,7 +82,7 @@ def conv1d(inputs,
                            stride=stride,
                            padding=padding)
     biases = tf.get_variable('biases', [num_output_channels],
-                              tf.constant_initializer(0.0))
+                              initializer = tf.constant_initializer(0.0))
     outputs = tf.nn.bias_add(outputs, biases)
 
     if bn:
@@ -144,12 +144,15 @@ def conv2d(inputs,
                              [1, stride_h, stride_w, 1],
                              padding=padding)
       biases = tf.get_variable('biases', [num_output_channels],
-                                tf.constant_initializer(0.0))
+                                initializer = tf.constant_initializer(0.0))
       outputs = tf.nn.bias_add(outputs, biases)
 
       if bn:
-        outputs = batch_norm_for_conv2d(outputs, is_training,
-                                        bn_decay=bn_decay, scope='bn')
+#        outputs = batch_norm_for_conv2d(outputs, is_training,
+#                                        bn_decay=bn_decay, scope='bn')
+        outputs = tf.contrib.layers.batch_norm(outputs, decay = 0.9, updates_collections = None, 
+                                               epsilon = 1e-5, scale = True, is_training = is_training,
+                                               scope = 'bn')
 
       if activation_fn is not None:
         outputs = activation_fn(outputs)
@@ -212,9 +215,9 @@ def conv2d_transpose(inputs,
           return dim_size
 
       # caculate output shape
-      batch_size = inputs.get_shape()[0].value
-      height = inputs.get_shape()[1].value
-      width = inputs.get_shape()[2].value
+      batch_size = tf.shape(inputs)[0]
+      height = tf.shape(inputs)[1]
+      width = tf.shape(inputs)[2]
       out_height = get_deconv_dim(height, stride_h, kernel_h, padding)
       out_width = get_deconv_dim(width, stride_w, kernel_w, padding)
       output_shape = [batch_size, out_height, out_width, num_output_channels]
@@ -223,12 +226,15 @@ def conv2d_transpose(inputs,
                              [1, stride_h, stride_w, 1],
                              padding=padding)
       biases = tf.get_variable('biases', [num_output_channels],
-                                tf.constant_initializer(0.0))
+                                initializer = tf.constant_initializer(0.0))
       outputs = tf.nn.bias_add(outputs, biases)
 
       if bn:
-        outputs = batch_norm_for_conv2d(outputs, is_training,
-                                        bn_decay=bn_decay, scope='bn')
+#        outputs = batch_norm_for_conv2d(outputs, is_training,
+#                                        bn_decay=bn_decay, scope='bn')
+        outputs = tf.contrib.layers.batch_norm(outputs, decay = 0.9, updates_collections = None, 
+                                               epsilon = 1e-5, scale = True, is_training = is_training,
+                                               scope = 'bn')
 
       if activation_fn is not None:
         outputs = activation_fn(outputs)
@@ -284,12 +290,13 @@ def conv3d(inputs,
                            [1, stride_d, stride_h, stride_w, 1],
                            padding=padding)
     biases = tf.get_variable('biases', [num_output_channels],
-                              tf.constant_initializer(0.0))
+                              initializer = tf.constant_initializer(0.0))
     outputs = tf.nn.bias_add(outputs, biases)
     
     if bn:
-      outputs = batch_norm_for_conv3d(outputs, is_training,
-                                      bn_decay=bn_decay, scope='bn')
+        outputs = tf.contrib.layers.batch_norm(outputs, decay = 0.9, updates_collections = None, 
+                                             epsilon = 1e-5, scale = True, is_training = is_training,
+                                             scope = 'bn')
 
     if activation_fn is not None:
       outputs = activation_fn(outputs)
@@ -323,11 +330,13 @@ def fully_connected(inputs,
                                           wd=weight_decay)
     outputs = tf.matmul(inputs, weights)
     biases = tf.get_variable('biases', [num_outputs],
-                             tf.constant_initializer(0.0))
+                             initializer = tf.constant_initializer(0.0))
     outputs = tf.nn.bias_add(outputs, biases)
      
     if bn:
-      outputs = batch_norm_for_fc(outputs, is_training, bn_decay, 'bn')
+      outputs = tf.contrib.layers.batch_norm(outputs, decay = 0.9, updates_collections = None, 
+                                             epsilon = 1e-5, scale = True, is_training = is_training,
+                                             scope = 'bn')
 
     if activation_fn is not None:
       outputs = activation_fn(outputs)

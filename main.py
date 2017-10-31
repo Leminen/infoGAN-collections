@@ -19,6 +19,7 @@ from src.data import make_dataset
 from src.data import process_dataset
 from src.models.BasicModel import BasicModel
 from src.models.logreg_example import Logreg_example
+from src.models.infoGAN import infoGAN
 from src.visualization import visualize
 
 
@@ -55,7 +56,7 @@ def parse_args():
     parser.add_argument('--model', 
                         type=str, 
                         default='BasicModel', 
-                        choices=['BasicModel', 'Logreg_example'],
+                        choices=['BasicModel', 'Logreg_example', 'infoGAN'],
                         required = True,
                         help='The name of the network model')
 
@@ -121,6 +122,10 @@ def main():
         elif args.model == 'Logreg_example':
             model = Logreg_example()
             model.train(dataset_str = args.dataset, epoch_N = 30, batch_N = 128)
+            
+        elif args.model == 'infoGAN':
+            model = infoGAN()
+            model.train(dataset_str = args.dataset, epoch_N = 25, batch_N = 64)
     
     # Visualize results
     if args.visualize:
