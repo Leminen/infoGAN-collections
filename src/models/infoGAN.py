@@ -7,7 +7,8 @@ Created on Tue Oct 24 14:01:52 2017
 """
 import os
 import tensorflow as tf
-import matplotlib.pyplot as plt
+import numpy as np
+#import matplotlib.pyplot as plt
 
 import src.data.process_dataset as process_dataset
 import src.models.ops_util as ops
@@ -44,38 +45,53 @@ class infoGAN(object):
         
         
     def __discriminator(self, x, is_training = True, reuse = False):
+        """ Defines the Discriminator network model
+        Args:
+    
+        Returns:
+        """
         
         with tf.variable_scope('discriminator', reuse = reuse):
             net = ops.conv2d(x, 64, kernel_size = [4,4], stride = [2,2], scope ='d_conv1', activation_fn=ops.leaky_relu)
-            net = ops.conv2d(net, 128, kernel_size = [4,4], stride = [2,2], scope ='d_conv2', bn = True, is_training = is_training, activation_fn=ops.leaky_relu)
+            net = ops.conv2d(net, 128, kernel_size = [4,4], stride = [2,2], scope ='d_conv2', bn = True, bn_decay=0.9, is_training = is_training, activation_fn=ops.leaky_relu)
             net = tf.reshape(net, [-1, 128*7*7])
-            net = ops.fully_connected(net, 1024, scope='d_fc3', bn = True, is_training = is_training, activation_fn=ops.leaky_relu)
+            net = ops.fully_connected(net, 1024, scope='d_fc3', bn = True, bn_decay=0.9, is_training = is_training, activation_fn=ops.leaky_relu)
             out_logit = ops.fully_connected(net, 1, scope='d_fc4', activation_fn = None)
             out = tf.nn.sigmoid(out_logit)
             
             return out, out_logit, net
     
     def __classifier(self, x, is_training = True, reuse = False):
+        """ Defines the Clasifier network model
+        Args:
+    
+        Returns:
+        """
         
         with tf.variable_scope("classifier", reuse = reuse):
             
-            net = ops.fully_connected(x, 64, scope='c_fc1', bn = True, is_training = is_training, activation_fn=ops.leaky_relu)
+            net = ops.fully_connected(x, 64, scope='c_fc1', bn = True, bn_decay=0.9, is_training = is_training, activation_fn=ops.leaky_relu)
             out_logit = ops.fully_connected(net, 12, scope='c_fc2', activation_fn = None)
             out = tf.nn.sigmoid(out_logit)
 
             return out, out_logit
     
     def __generator(self, z, c, is_training=True, reuse=False):
+        """ Defines the Generator network model
+        Args:
+    
+        Returns:
+        """
 
         with tf.variable_scope("generator", reuse=reuse):
 
             # merge noise and code
             z = tf.concat([z, c], 1)
             
-            net = ops.fully_connected(z, 1024, scope='g_fc1', bn = True, is_training = is_training)
-            net = ops.fully_connected(net, 128 * 7 * 7, scope='g_fc2', bn = True, is_training = is_training)
+            net = ops.fully_connected(z, 1024, scope='g_fc1', bn = True, bn_decay=0.9, is_training = is_training)
+            net = ops.fully_connected(net, 128 * 7 * 7, scope='g_fc2', bn = True, bn_decay=0.9, is_training = is_training)
             net = tf.reshape(net, [-1, 7, 7, 128])
-            net = ops.conv2d_transpose(net, 64, kernel_size = [4,4], stride = [2,2], scope='g_dconv3', bn = True, is_training = is_training)
+            net = ops.conv2d_transpose(net, 64, kernel_size = [4,4], stride = [2,2], scope='g_dconv3', bn = True, bn_decay=0.9, is_training = is_training)
             net = ops.conv2d_transpose(net, 1, kernel_size = [4,4], stride = [2,2], scope='g_dconv4', activation_fn = None)
             out = tf.nn.sigmoid(net)
 
@@ -145,11 +161,30 @@ class infoGAN(object):
     
         Returns:
         """
+        with tf.name_scope('summaryHelpers'):
+            sum_ImgTest = tf.unstack(self.testImgs) # split last axis (num_images) into list of (h, w)
+            sum_ImgTest = tf.concat(sum_ImgTest, axis=1) # tile all images horizontally into single row
+            sum_ImgTest = tf.split(sum_ImgTest, 8, axis=1) # split into desired number of rows
+            self.imageMosaic = tf.concat(sum_ImgTest, axis=0) # tile rows vertically
+            
+            
+        
+        with tf.name_scope("SummaryImages"):
+            self.summary_img_op = tf.summary.image('testImg', self.testImgMosaics, max_outputs = 20)
+            
         
         ### Add summaries
-        with tf.name_scope("summaries"):
-            tf.summary.scalar('placeholderScalar', 1) # placeholder summary
-            self.summary_op = tf.summary.merge_all()
+        with tf.name_scope("summaryLosses"):
+            sum_Gloss = tf.summary.scalar('lossGenerator', self.g_loss)
+            sum_Dloss = tf.summary.scalar('lossDiscriminator', self.d_loss)
+            sum_Qloss = tf.summary.scalar('lossClassifier',self.q_loss)
+            
+            self.summary_loss_op = tf.summary.merge([sum_Gloss, 
+                                                     sum_Dloss, 
+                                                     sum_Qloss])
+            
+#            tf.summary.scalar('placeholderScalar', 1) # placeholder summary
+#            self.summary_op = tf.summary.merge_all()
         
         
     def train(self, dataset_str, epoch_N, batch_N):
@@ -175,18 +210,27 @@ class infoGAN(object):
         # Create input placeholders
         input_shape = [None, 28, 28, 1] # input image shape [batch_size, image_height, image_width, image_channels]
         self.inputImage = tf.placeholder(dtype = tf.float32, shape = input_shape, name = 'real_images')
-        # Labels
         self.inputCode = tf.placeholder(dtype = tf.float32, shape = [None, 12], name = 'code_vector') # input code shape [batch_size, code_dim]
-        # Noise
         self.inputNoise = tf.placeholder(dtype = tf.float32, shape = [None, 62], name = 'noise_vector') # input noise shape [batch_size, noise_dim]
-        # Training flag
         self.isTraining = tf.placeholder(dtype = tf.bool, name = 'training_flag')
         
-        # define model, loss, optimizer and summaries.
+        
+        # Create test placeholders
+        self.testCategory = tf.placeholder(dtype = tf.int32, shape = [], name = 'testCategory')
+        self.testImgs = tf.placeholder(dtype = tf.float32, shape = [64, 28, 28, 1], name = 'testImages')
+        self.testImgMosaics = tf.placeholder(dtype = tf.float32, shape = [10, 224, 224, 1], name = 'testImageMosaics')
+        
+        
+        # Define generator for test variables
+        testCodes_generator, test_noise_generator = self._genTestCodes()
+        
+        
+        # Define model, loss, optimizer and summaries.
         self._create_inference()
         self._create_losses()
         self._create_optimizer()
         self._create_summaries()
+        
         
         
         with tf.Session() as sess:
@@ -211,51 +255,77 @@ class infoGAN(object):
             
             counter = 0
             
-            # Do training loops
+            ### --------------------------------------------------------------
+            ### Do training loops
             for epoch_n in range(epoch_start, epoch_N):
                 
                 training_filenames = ['data/processed/' + dataset_str + '/train.tfrecords'] # EXAMPLE
                 sess.run(iterator.initializer, feed_dict={filenames: training_filenames})
                 
-                print('Running training epoch no: ', epoch_n)
+                ### ----------------------------------------------------------
+                ### Test the current model
+                imageMosaics = np.empty([10, 224, 224, 1], dtype=np.float32)
+                for n_category in range(10):
+                    # Generate a batch of test codes and noise with category n_category
+                    codes_test, noise_test = sess.run([testCodes_generator, test_noise_generator], 
+                                                      feed_dict = {self.testCategory: n_category}
+                                                      )
+                    
+                    # Make foward pass through generator using the test batch
+                    test_img = sess.run(self.img_fake, 
+                                        feed_dict={self.inputCode:  codes_test, 
+                                                   self.inputNoise: noise_test, 
+                                                   self.isTraining: False}
+                                        )
+                    
+                    # Create mosaic from the generated images and store it
+                    test_imgMosaic = sess.run(self.imageMosaic,
+                                              feed_dict={self.testImgs:  test_img}
+                                              )
+                    imageMosaics[n_category,:,:,:] = test_imgMosaic
+
+                # Generate summary for TensorBoard
+                summaryImg = sess.run(self.summary_img_op,
+                                      feed_dict={self.testImgMosaics: imageMosaics})
+                writer.add_summary(summaryImg, global_step=epoch_n)
                 
+                
+                ### ----------------------------------------------------------
+                ### Update model
+                print('Running training epoch no: ', epoch_n)
                 while True:
                     try:
+                        # Get training bathc from the dataset
                         imgs_batch, codes_batch, noise_batch = sess.run(self.input_getBatch)
                         
-                        # update D network
-                        _, summary = sess.run([self.d_optimizer_op, self.summary_op], 
-                                              feed_dict={self.inputImage: imgs_batch, 
-                                                         self.inputCode: codes_batch, 
-                                                         self.inputNoise: noise_batch,
-                                                         self.isTraining: True}
-                                              )
+                        # Update Discriminator network
+                        _ = sess.run([self.d_optimizer_op], 
+                                     feed_dict={self.inputImage:    imgs_batch, 
+                                                self.inputCode:     codes_batch, 
+                                                self.inputNoise:    noise_batch,
+                                                self.isTraining:    True}
+                                     )
                         
-                        # update G and Q network
-                        _, _, summary = sess.run([self.g_optimizer_op, self.q_optimizer_op, self.summary_op],
-                                                 feed_dict={self.inputImage: imgs_batch, 
-                                                            self.inputCode: codes_batch, 
-                                                            self.inputNoise: noise_batch,
-                                                            self.isTraining: True}
+                        # Update Generator and Classifier network
+                        _, _, summaryLoss = sess.run([self.g_optimizer_op, self.q_optimizer_op, self.summary_loss_op],
+                                                 feed_dict={self.inputImage:    imgs_batch, 
+                                                            self.inputCode:     codes_batch, 
+                                                            self.inputNoise:    noise_batch,
+                                                            self.isTraining:    True}
                                                  )
-                    
-                        writer.add_summary(summary, global_step=counter)
-                        counter =+ 1
+                        
+                        # Write model losses to TensorBoard
+                        writer.add_summary(summaryLoss, global_step=counter)
+                        counter += 1
                         
                     except tf.errors.OutOfRangeError:
                         break
                 
+                # Save model variables to checkpoint
                 if epoch_n % 1 == 0:
                     saver.save(sess,os.path.join(self.dir_checkpoints, self.model + '.model'), global_step=epoch_n)
                 
-                
-                ### TEST of Input
-#                for _ in range(10):
-#                    inputs = sess.run(self.input)
-#                            
-#                    print('Label = ', inputs[0], 'Input Data Shape = ', inputs[1].shape, 'Plotting first image!')
-#                    plt.imshow(inputs[1][0].squeeze())
-#                    plt.show()
+
             
     
     def predict(self):
@@ -271,6 +341,15 @@ class infoGAN(object):
 
 
     def _genLatentCodes(self, image_proto, lbl_proto):
+        """ Augment dataset entries. Generates latent codes based on class 
+            labels, usign one-hot encoding, and adds two continuous latent 
+            codes for the network to estimate. Also generates a GAN noise
+            vector per data sample.
+        Args:
+    
+        Returns:
+        """
+        
         image = image_proto
         
         code = tf.one_hot(lbl_proto,10)
@@ -279,3 +358,29 @@ class infoGAN(object):
         noise = tf.random_uniform([62], minval = -1, maxval = 1)
         
         return image, code, noise
+    
+    def _genTestCodes(self):
+        """ Defines test code and noise generator. Generates laten codes based
+            on a testCategory input.
+        Args:
+    
+        Returns:
+        """
+    
+        n_rowImage = 8
+        n_totImage = n_rowImage * n_rowImage
+        
+        cat_code = tf.fill([n_totImage],self.testCategory)
+        cat_code = tf.one_hot(cat_code,10)
+        
+        cont_code = tf.lin_space(-1.,1.,n_rowImage)
+        cont_code1, cont_code2 = tf.meshgrid(cont_code,cont_code)
+        cont_code1 = tf.reshape(cont_code1,[-1])
+        cont_code2 = tf.reshape(cont_code2,[-1])
+        
+        cont_code = tf.stack([cont_code1,cont_code2], axis = 1)
+        
+        code = tf.concat([cat_code, cont_code], axis = 1)
+        noise = tf.zeros([n_totImage,62])
+        
+        return code, noise
