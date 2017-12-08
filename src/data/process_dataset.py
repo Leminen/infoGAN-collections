@@ -1,7 +1,13 @@
 
 import os
-import tensorflow as tf
 import numpy as np
+import zipfile
+import types
+import PIL
+from PIL import Image, ImageOps
+import math
+
+import tensorflow as tf
 from tensorflow.contrib.learn.python.learn.datasets import mnist
 
 import src.utils as utils
@@ -13,9 +19,28 @@ def process_dataset(dataset):
     if dataset == 'mnist':
         # Download the MNIST dataset from source and save it in 'data/raw/mnist'
         data = mnist.read_data_sets('data/raw/mnist', reshape=False)
-        _convert_to_tfrecord(data.train, dataset, 'train')
-        _convert_to_tfrecord(data.validation, dataset, 'validation')
-        _convert_to_tfrecord(data.test, dataset, 'test')
+        _convert_to_tfrecord(data.train.images, data.train.labels, dataset, 'train')
+        _convert_to_tfrecord(data.validation.images, data.validation.labels, dataset, 'validation')
+        _convert_to_tfrecord(data.test.images, data.test.labels, dataset, 'test')
+    
+    if dataset == 'PSD_Segmented':
+        dirRaw = 'data/raw/PSD_Segmented'
+        for file in os.listdir(dirRaw):
+            if file.endswith('.zip'):
+                excludeList = ['Black-grass', 'Common Chickweed', 'Loose Silky-bent']    
+
+                images, labels, dictionary = _getCompressedDataset('data/raw/PSD_Segmented/data.zip',excludeList)
+                images = _scaleImages(images)
+                images = np.array([np.array(img) for img in images])
+                _convert_to_tfrecord(images,labels,dataset,file[:-4])
+        
+    if dataset == 'PSD_NonSegmented':
+        print('Needs implementation to process PSD_NonSegmented data and save into tfrecord')
+#        dirRaw = 'data/raw/PSD_NonSegmented'
+#        for file in os.listdir(dirRaw):
+#            if file.endswith('.zip'):
+#                data = _getCompressedDataset(os.path.join(dirRaw,file))
+#                _convert_to_tfrecord(data.images,data.labels,dataset,file[:-4])
         
 
 
@@ -27,11 +52,9 @@ def __bytes_feature(value):
     return tf.train.Feature(bytes_list=tf.train.BytesList(value=[value]))
 
 
-def _convert_to_tfrecord(data, dataset, name):
+def _convert_to_tfrecord(images, labels, dataset, name):
     """Converts a dataset to tfrecords."""
-    images = data.images
-    labels = data.labels
-    num_examples = data.num_examples
+    num_examples = len(labels)
 
     if images.shape[0] != num_examples:
         raise ValueError('Images size %d does not match label size %d.' %
@@ -78,6 +101,88 @@ def _decodeData(example_proto):
     label = parsed_features['label']
     
     return image, label
+
+
+###
+def _getCompressedDataset(dirCompressedData,excludeList = None):
+    archive = zipfile.ZipFile(dirCompressedData)
     
+    images =list()
+    labels = list()
+    
+    for file in archive.namelist():
+        file_info = archive.getinfo(file)
+
+        if not(file_info.is_dir()):
+            ## if file contains xyz skip
+            file_data = archive.open(file)
+            img = Image.open(file_data)
+            
+            if excludeList == None:
+                images.append(img)
+                labels.append(file.split('/')[-2])
+            else:
+                if not any(x in file for x in excludeList):
+                    images.append(img)
+                    labels.append(file.split('/')[-2])
+    
+    dictionary, labels = np.unique(labels,return_inverse=True) # Convert to numbers
+
+    return images, labels, dictionary
+
+def _scaleImages(listImages, desired_size = 224):
+
+    listImagesNew = list()
+    for image in listImages:
+        x, y = image.size
+        delta_w = desired_size - x
+        delta_h = desired_size - y
+        padding = (delta_w//2, delta_h//2, delta_w-(delta_w//2), delta_h-(delta_h//2))
+        image = ImageOps.expand(image, padding)
+        listImagesNew.append(image)
+    
+    return listImagesNew
+
+process_dataset('PSD_Segmented')
+
+#excludeList = ['Black-grass', 'Common Chickweed', 'Loose Silky-bent']    
+#
+#images, labels, dictionary = _getCompressedDataset('data/raw/PSD_Segmented/data.zip',excludeList)
+#images = _scaleImages(images)
+#
+##images2 = [np.array(img) for img in images]
+#images3 = np.array([np.array(img) for img in images])
+#
+#lbl = labels
+#lbl = labels
+
+## https://stackoverflow.com/questions/19371860/python-open-file-from-zip-without-temporary-extracting-it
+#import io, pygame, zipfile
+#archive = zipfile.ZipFile('images.zip', 'r')
+#
+## read bytes from archive
+#img_data = archive.read('img_01.png')
+#
+## create a pygame-compatible file-like object from the bytes
+#bytes_io = io.BytesIO(img_data)
+#
+#img = pygame.image.load(bytes_io)
+    
+
+
+### https://stackoverflow.com/questions/33166316/how-to-read-an-image-inside-a-zip-file-with-pil-pillow
+#import sys
+#from zipfile import ZipFile
+#from PIL import Image # $ pip install pillow
+#
+#filename = sys.argv[1]
+#with ZipFile(filename) as archive:
+#    for entry in archive.infolist():
+#        with archive.open(entry) as file:
+#            img = Image.open(file)
+#            print(img.size, img.mode, len(img.getdata()))
+    
+
+####https://stackoverflow.com/questions/8934335/python-zipfile-how-do-i-know-an-item-is-a-directory
     
     

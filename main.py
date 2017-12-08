@@ -20,6 +20,7 @@ from src.data import process_dataset
 from src.models.BasicModel import BasicModel
 from src.models.logreg_example import Logreg_example
 from src.models.infoGAN import infoGAN
+from src.models.weedGAN import weedGAN
 from src.visualization import visualize
 
 
@@ -56,13 +57,15 @@ def parse_args():
     parser.add_argument('--model', 
                         type=str, 
                         default='BasicModel', 
-                        choices=['BasicModel', 'Logreg_example', 'infoGAN'],
+                        choices=['BasicModel', 'Logreg_example', 'infoGAN', 'weedGAN'],
                         required = True,
                         help='The name of the network model')
 
     parser.add_argument('--dataset', 
                         type=str, default='mnist', 
-                        choices=['mnist'],
+                        choices=['mnist', 
+                                 'PSD_Segmented',
+                                 'PSD_NonSegmented'],
                         required = True,
                         help='The name of dataset')
     
@@ -107,9 +110,6 @@ def main():
     if args.process_dataset:
         print('Processing raw dataset: ' + args.dataset)
         process_dataset.process_dataset(args.dataset)
-        #################################
-        ####### To Be Implemented #######
-        #################################
         
     # Build and train model
     if args.train_model:
@@ -125,6 +125,10 @@ def main():
             
         elif args.model == 'infoGAN':
             model = infoGAN()
+            model.train(dataset_str = args.dataset, epoch_N = 25, batch_N = 64)
+        
+        elif args.model == 'weedGAN':
+            model = weedGAN()
             model.train(dataset_str = args.dataset, epoch_N = 25, batch_N = 64)
     
     # Visualize results
