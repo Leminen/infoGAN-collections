@@ -143,7 +143,7 @@ def _scaleImages(listImages, desired_size = 224):
     
     return listImagesNew
 
-process_dataset('PSD_Segmented')
+#process_dataset('PSD_Segmented')
 
 #excludeList = ['Black-grass', 'Common Chickweed', 'Loose Silky-bent']    
 #
