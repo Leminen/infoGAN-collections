@@ -21,6 +21,8 @@ class weedGAN(object):
         self.dir_logs        = 'models/' + self.model + '/logs'
         self.dir_checkpoints = 'models/' + self.model + '/checkpoints'
         self.dir_results     = 'models/' + self.model + '/results'
+
+        self._numCategories = 8
         
         utils.checkfolder(self.dir_checkpoints)
         utils.checkfolder(self.dir_logs)
@@ -53,7 +55,7 @@ class weedGAN(object):
         
         with tf.variable_scope('discriminator', reuse = reuse):
             # alexNet 
-            net = ops.conv2d(inputImage, 96, kernel_size = [11,11], stride = [4,4], scope='d_conv1')
+            net = ops.conv2d(x, 96, kernel_size = [11,11], stride = [4,4], scope='d_conv1')
             net = ops.max_pool2d(net, kernel_size = [3,3], padding='VALID', scope = 'd_pool1')
             net = ops.conv2d(net, 256, kernel_size = [5,5], stride = [1,1], scope='d_conv2')
             net = ops.max_pool2d(net, kernel_size = [3,3], padding='VALID', scope = 'd_pool2')
@@ -142,13 +144,13 @@ class weedGAN(object):
         
         # Information loss
         # discrete code : categorical
-        code_est_disc = self.code_logit_est[:,:10]
-        code_target_disc = self.inputCode[:,:10]
+        code_est_disc = self.code_logit_est[:,:self._numCategories]
+        code_target_disc = self.inputCode[:,:self._numCategories]
         q_loss_disc = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=code_est_disc, labels=code_target_disc))
 
         # continuous code : gaussian
-        code_est_cont = self.code_est[:,10:]
-        code_target_cont = self.inputCode[:,10:]
+        code_est_cont = self.code_est[:,self._numCategories:]
+        code_target_cont = self.inputCode[:,self._numCategories:]
         q_loss_cont = tf.reduce_mean(tf.reduce_sum(tf.square(code_target_cont - code_est_cont), axis=1))
 
         self.q_loss = q_loss_disc + q_loss_cont
@@ -239,7 +241,7 @@ class weedGAN(object):
         # Create test placeholders
         self.testCategory = tf.placeholder(dtype = tf.int32, shape = [], name = 'testCategory')
         self.testImgs = tf.placeholder(dtype = tf.float32, shape = [64, 224, 224, 3], name = 'testImages')
-        self.testImgMosaics = tf.placeholder(dtype = tf.float32, shape = [10, 8*224, 8*224, 3], name = 'testImageMosaics')
+        self.testImgMosaics = tf.placeholder(dtype = tf.float32, shape = [self._numCategories, 8*224, 8*224, 3], name = 'testImageMosaics')
         
         
         # Define generator for test variables
@@ -285,8 +287,8 @@ class weedGAN(object):
                 
                 ### ----------------------------------------------------------
                 ### Test the current model
-                imageMosaics = np.empty([10, 1792, 1792, 3], dtype=np.float32)
-                for n_category in range(10):
+                imageMosaics = np.empty([self._numCategories, 1792, 1792, 3], dtype=np.float32)
+                for n_category in range(self._numCategories):
                     # Generate a batch of test codes and noise with category n_category
                     codes_test, noise_test = sess.run([testCodes_generator, test_noise_generator], 
                                                       feed_dict = {self.testCategory: n_category}
@@ -373,7 +375,7 @@ class weedGAN(object):
         
         image = image_proto
         
-        code = tf.one_hot(lbl_proto,10)
+        code = tf.one_hot(lbl_proto,self._numCategories)
         code = tf.concat([code, tf.random_uniform([2], minval = -1, maxval = 1)],0)
         
         noise = tf.random_uniform([62], minval = -1, maxval = 1)
@@ -392,7 +394,7 @@ class weedGAN(object):
         n_totImage = n_rowImage * n_rowImage
         
         cat_code = tf.fill([n_totImage],self.testCategory)
-        cat_code = tf.one_hot(cat_code,10)
+        cat_code = tf.one_hot(cat_code,self._numCategories)
         
         cont_code = tf.lin_space(-1.,1.,n_rowImage)
         cont_code1, cont_code2 = tf.meshgrid(cont_code,cont_code)
