@@ -31,7 +31,7 @@ def process_dataset(dataset):
 
                 images, labels, dictionary = _getCompressedDataset('data/raw/PSD_Segmented/data.zip',excludeList)
                 images = _scaleImages(images)
-                images = np.array([np.array(img) for img in images])
+                images = np.array([np.asarray(img, dtype=np.float32) / 255 for img in images])
                 _convert_to_tfrecord(images,labels,dataset,file[:-4])
         
     if dataset == 'PSD_NonSegmented':

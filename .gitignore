@@ -74,3 +74,9 @@ target/
 
 # exclude model data as default, since these are quiet large in tensorflow. Modify ignore to include latest checkpoint for backup
 /models/
+
+# exclude vscode folder
+/.vscode/
+
+# exclude test scripts
+TEST*.py
