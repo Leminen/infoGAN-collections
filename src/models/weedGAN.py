@@ -23,6 +23,9 @@ class weedGAN(object):
         self.dir_results     = 'models/' + self.model + '/results'
 
         self._numCategories = 8
+        self._numModalities = 2
+        self._lenLatentCode = self._numCategories + self._numModalities
+        self._lenNoiseCode = 62
         
         utils.checkfolder(self.dir_checkpoints)
         utils.checkfolder(self.dir_logs)
@@ -82,7 +85,7 @@ class weedGAN(object):
         
         with tf.variable_scope("classifier", reuse = reuse):
             
-            out_logit = ops.fully_connected(x, 12, scope='c_fc1', activation_fn = None)
+            out_logit = ops.fully_connected(x, self._lenLatentCode, scope='c_fc1', activation_fn = None)
             out = tf.nn.sigmoid(out_logit)
 
             return out, out_logit
@@ -233,8 +236,8 @@ class weedGAN(object):
         # Create input placeholders
         input_shape = [None, 224, 224, 3] # input image shape [batch_size, image_height, image_width, image_channels]
         self.inputImage = tf.placeholder(dtype = tf.float32, shape = input_shape, name = 'real_images')
-        self.inputCode = tf.placeholder(dtype = tf.float32, shape = [None, 12], name = 'code_vector') # input code shape [batch_size, code_dim]
-        self.inputNoise = tf.placeholder(dtype = tf.float32, shape = [None, 62], name = 'noise_vector') # input noise shape [batch_size, noise_dim]
+        self.inputCode = tf.placeholder(dtype = tf.float32, shape = [None, self._lenLatentCode], name = 'code_vector') # input code shape [batch_size, code_dim]
+        self.inputNoise = tf.placeholder(dtype = tf.float32, shape = [None, self._lenNoiseCode], name = 'noise_vector') # input noise shape [batch_size, noise_dim]
         self.isTraining = tf.placeholder(dtype = tf.bool, name = 'training_flag')
         
         
@@ -287,7 +290,7 @@ class weedGAN(object):
                 
                 ### ----------------------------------------------------------
                 ### Test the current model
-                imageMosaics = np.empty([self._numCategories, 1792, 1792, 3], dtype=np.float32)
+                imageMosaics = np.empty([self._numCategories, 8*224, 8*224, 3], dtype=np.float32)
                 for n_category in range(self._numCategories):
                     # Generate a batch of test codes and noise with category n_category
                     codes_test, noise_test = sess.run([testCodes_generator, test_noise_generator], 
@@ -376,9 +379,9 @@ class weedGAN(object):
         image = image_proto
         
         code = tf.one_hot(lbl_proto,self._numCategories)
-        code = tf.concat([code, tf.random_uniform([2], minval = -1, maxval = 1)],0)
+        code = tf.concat([code, tf.random_uniform([self._numModalities], minval = -1, maxval = 1)],0)
         
-        noise = tf.random_uniform([62], minval = -1, maxval = 1)
+        noise = tf.random_uniform([self._lenNoiseCode], minval = -1, maxval = 1)
         
         return image, code, noise
     
@@ -404,6 +407,6 @@ class weedGAN(object):
         cont_code = tf.stack([cont_code1,cont_code2], axis = 1)
         
         code = tf.concat([cat_code, cont_code], axis = 1)
-        noise = tf.zeros([n_totImage,62])
+        noise = tf.zeros([n_totImage,self._lenNoiseCode])
         
         return code, noise
