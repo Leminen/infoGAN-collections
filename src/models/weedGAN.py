@@ -53,14 +53,14 @@ class weedGAN(object):
         
         with tf.variable_scope('discriminator', reuse = reuse):
             # alexNet 
-            net = ops.conv2d(x, 96, kernel_size = [11,11], stride = [4,4], padding='VALID', scope='d_conv1')
-            net = ops.max_pool2d(net, kernel_size = [3,3],scope = 'd_pool1')
-            net = net = ops.conv2d(net, 256, kernel_size = [5,5], stride = [1,1], padding='VALID', scope='d_conv2')
-            net = ops.max_pool2d(net, kernel_size = [3,3],scope = 'd_pool2')
-            net = net = ops.conv2d(net, 384, kernel_size = [3,3], stride = [1,1], padding='VALID', scope='d_conv3')
-            net = net = ops.conv2d(net, 384, kernel_size = [3,3], stride = [1,1], padding='VALID', scope='d_conv4')
-            net = net = ops.conv2d(net, 256, kernel_size = [3,3], stride = [1,1], padding='VALID', scope='d_conv5')
-            net = ops.max_pool2d(net, kernel_size = [3,3],scope = 'd_pool5')
+            net = ops.conv2d(inputImage, 96, kernel_size = [11,11], stride = [4,4], scope='d_conv1')
+            net = ops.max_pool2d(net, kernel_size = [3,3], padding='VALID', scope = 'd_pool1')
+            net = ops.conv2d(net, 256, kernel_size = [5,5], stride = [1,1], scope='d_conv2')
+            net = ops.max_pool2d(net, kernel_size = [3,3], padding='VALID', scope = 'd_pool2')
+            net = ops.conv2d(net, 384, kernel_size = [3,3], stride = [1,1], scope='d_conv3')
+            net = ops.conv2d(net, 384, kernel_size = [3,3], stride = [1,1], scope='d_conv4')
+            net = ops.conv2d(net, 256, kernel_size = [3,3], stride = [1,1], scope='d_conv5')
+            net = ops.max_pool2d(net, kernel_size = [3,3], padding='VALID', scope = 'd_pool5')
             net = tf.reshape(net,[-1,6*6*256])
             net = ops.fully_connected(net, 4096, scope='d_fc6')
             net = ops.dropout(net, is_training = is_training, scope='d_drop6')
