@@ -14,12 +14,13 @@ __email__ = "slm@eng.au.dk"
 
 import os
 import argparse
+import datetime
 
 from src.data import make_dataset
 from src.data import process_dataset
 from src.models.BasicModel import BasicModel
-from src.models.logreg_example import Logreg_example
 from src.models.infoGAN import infoGAN
+from src.models.infoGAN_32x32 import infoGAN_32x32
 from src.models.weedGAN import weedGAN
 from src.visualization import visualize
 
@@ -56,16 +57,15 @@ def parse_args():
 
     parser.add_argument('--model', 
                         type=str, 
-                        default='BasicModel', 
-                        choices=['BasicModel', 'Logreg_example', 'infoGAN', 'weedGAN'],
+                        default='infoGAN', 
+                        choices=['infoGAN', 'infoGAN_32x32'],
                         required = True,
                         help='The name of the network model')
 
     parser.add_argument('--dataset', 
-                        type=str, default='mnist', 
-                        choices=['mnist', 
-                                 'PSD_Segmented',
-                                 'PSD_NonSegmented'],
+                        type=str, default='MNIST', 
+                        choices=['MNIST',
+                                 'SVHN'],
                         required = True,
                         help='The name of dataset')
     
@@ -103,33 +103,33 @@ def main():
     
     # Make dataset
     if args.make_dataset:
-        print('Fetching raw dataset: ' + args.dataset)
+        print('%s - Fetching raw dataset: %s'  % (datetime.datetime.now(), args.dataset))
         make_dataset.make_dataset(args.dataset)
         
     # Make dataset
     if args.process_dataset:
-        print('Processing raw dataset: ' + args.dataset)
+        print('%s - Processing raw dataset: %s' % (datetime.datetime.now(), args.dataset))
         process_dataset.process_dataset(args.dataset)
         
     # Build and train model
     if args.train_model:
-        print('Configuring and training Network: '+ args.model)
+        print('%s - Configuring and training Network: %s' % (datetime.datetime.now(), args.model))
         
         if args.model == 'BasicModel':
             model = BasicModel()
-            model.train(dataset_str = args.dataset)
-            
-        elif args.model == 'Logreg_example':
-            model = Logreg_example()
-            model.train(dataset_str = args.dataset, epoch_N = 30, batch_N = 128)
-            
+            model.train(dataset_str = args.dataset, epoch_N = 25, batch_N = 64)
+               
         elif args.model == 'infoGAN':
             model = infoGAN()
             model.train(dataset_str = args.dataset, epoch_N = 25, batch_N = 64)
         
-        elif args.model == 'weedGAN':
-            model = weedGAN()
-            model.train(dataset_str = args.dataset, epoch_N = 25, batch_N = 64)
+        elif args.model == 'infoGAN_32x32':
+            model = infoGAN_32x32()
+            model.train(dataset_str = args.dataset, epoch_N = 100, batch_N = 64)
+        
+        # elif args.model == 'weedGAN':
+        #     model = weedGAN()
+        #     model.train(dataset_str = args.dataset, epoch_N = 25, batch_N = 64)
     
     # Visualize results
     if args.visualize:

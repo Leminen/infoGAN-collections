@@ -1,6 +1,7 @@
 
 import os
 import numpy as np
+import scipy.io
 import zipfile
 import types
 import PIL
@@ -16,22 +17,33 @@ def process_dataset(dataset):
     dir_processedData = 'data/processed/'+ dataset
     utils.checkfolder(dir_processedData)
     
-    if dataset == 'mnist':
+    if dataset == 'MNIST':
         # Download the MNIST dataset from source and save it in 'data/raw/mnist'
-        data = mnist.read_data_sets('data/raw/mnist', reshape=False)
+        data = mnist.read_data_sets('data/raw/MNIST', reshape=False)
         _convert_to_tfrecord(data.train.images, data.train.labels, dataset, 'train')
         _convert_to_tfrecord(data.validation.images, data.validation.labels, dataset, 'validation')
         _convert_to_tfrecord(data.test.images, data.test.labels, dataset, 'test')
     
+    if dataset == 'SVHN':
+        dirRaw = 'data/raw/SVHN/'
+        for file in os.listdir(dirRaw):
+            if file.endswith('.mat'):
+                mat = scipy.io.loadmat(dirRaw + file)
+                images = np.transpose(mat['X'], (3, 0, 1, 2))
+                images = np.array(images, dtype = 'f') / 255
+                labels = np.mod(mat['y'][:,0],10)
+                _convert_to_tfrecord(images, labels, dataset, file[:-4])
+
+
     if dataset == 'PSD_Segmented':
         dirRaw = 'data/raw/PSD_Segmented'
         for file in os.listdir(dirRaw):
             if file.endswith('.zip'):
                 excludeList = ['Black-grass', 'Common Chickweed', 'Loose Silky-bent']    
 
-                images, labels, dictionary = _getCompressedDataset('data/raw/PSD_Segmented/data.zip',excludeList)
+                images, labels, _ = _getCompressedDataset('data/raw/PSD_Segmented/data.zip',excludeList)
                 images = _scaleImages(images)
-                images = np.array([np.asarray(img, dtype=np.float32) / 255 for img in images])
+                images = np.array([np.asarray(img, dtype = 'f') / 255 for img in images])
                 _convert_to_tfrecord(images,labels,dataset,file[:-4])
         
     if dataset == 'PSD_NonSegmented':

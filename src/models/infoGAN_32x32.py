@@ -8,6 +8,7 @@ Created on Tue Oct 24 14:01:52 2017
 import os
 import tensorflow as tf
 import numpy as np
+import datetime
 #import matplotlib.pyplot as plt
 
 import src.data.process_dataset as process_dataset
@@ -15,9 +16,9 @@ import src.models.ops_util as ops
 import src.utils as utils
 
 
-class infoGAN(object):
+class infoGAN_32x32(object):
     def __init__(self):
-        self.model = 'infoGAN'
+        self.model = 'infoGAN_32x32'
         self.dir_logs        = 'models/' + self.model + '/logs'
         self.dir_checkpoints = 'models/' + self.model + '/checkpoints'
         self.dir_results     = 'models/' + self.model + '/results'
@@ -54,8 +55,8 @@ class infoGAN(object):
         with tf.variable_scope('discriminator', reuse = reuse):
             net = ops.conv2d(x, 64, kernel_size = [4,4], stride = [2,2], scope ='d_conv1', activation_fn=ops.leaky_relu)
             net = ops.conv2d(net, 128, kernel_size = [4,4], stride = [2,2], scope ='d_conv2', bn = True, bn_decay=0.9, is_training = is_training, activation_fn=ops.leaky_relu)
-            net = tf.reshape(net, [-1, 7*7*128])
-            net = ops.fully_connected(net, 1024, scope='d_fc3', bn = True, bn_decay=0.9, is_training = is_training, activation_fn=ops.leaky_relu)
+            net = ops.conv2d(net, 256, kernel_size = [4,4], stride = [2,2], scope ='d_conv3', bn = True, bn_decay=0.9, is_training = is_training, activation_fn=ops.leaky_relu)
+            net = tf.reshape(net, [-1, 4*4*256])
             out_logit = ops.fully_connected(net, 1, scope='d_fc4', activation_fn = None)
             out = tf.nn.sigmoid(out_logit)
             
@@ -70,7 +71,7 @@ class infoGAN(object):
         
         with tf.variable_scope("classifier", reuse = reuse):
             
-            net = ops.fully_connected(x, 64, scope='c_fc1', bn = True, bn_decay=0.9, is_training = is_training, activation_fn=ops.leaky_relu)
+            net = ops.fully_connected(x, 128, scope='c_fc1', bn = True, bn_decay=0.9, is_training = is_training, activation_fn=ops.leaky_relu)
             out_logit = ops.fully_connected(net, 12, scope='c_fc2', activation_fn = None)
             out = tf.nn.sigmoid(out_logit)
 
@@ -88,12 +89,12 @@ class infoGAN(object):
             # merge noise and code
             z = tf.concat([z, c], 1)
             
-            net = ops.fully_connected(z, 1024, scope='g_fc1', bn = True, bn_decay=0.9, is_training = is_training)
-            net = ops.fully_connected(net, 128 * 7 * 7, scope='g_fc2', bn = True, bn_decay=0.9, is_training = is_training)
-            net = tf.reshape(net, [-1, 7, 7, 128])
-            net = ops.conv2d_transpose(net, 64, kernel_size = [4,4], stride = [2,2], scope='g_dconv3', bn = True, bn_decay=0.9, is_training = is_training)
-            net = ops.conv2d_transpose(net, 1, kernel_size = [4,4], stride = [2,2], scope='g_dconv4', activation_fn = None)
-            out = tf.nn.sigmoid(net)
+            net = ops.fully_connected(z, 2*2*448, scope='g_fc1', bn = True, bn_decay=0.9, is_training = is_training)
+            net = tf.reshape(net, [-1, 2, 2, 448])
+            net = ops.conv2d_transpose(net, 256, kernel_size = [4,4], stride = [2,2], scope='g_dconv2', bn = True, bn_decay=0.9, is_training = is_training)
+            net = ops.conv2d_transpose(net, 128, kernel_size = [4,4], stride = [2,2], scope='g_dconv3')
+            net = ops.conv2d_transpose(net, 64, kernel_size = [4,4], stride = [2,2], scope='g_dconv4')
+            out = ops.conv2d_transpose(net, 3, kernel_size = [4,4], stride = [2,2], scope='g_dconv5', activation_fn = tf.nn.tanh)
 
             return out
     
@@ -208,17 +209,17 @@ class infoGAN(object):
         
         
         # Create input placeholders
-        input_shape = [None, 28, 28, 1] # input image shape [batch_size, image_height, image_width, image_channels]
+        input_shape = [None, 32, 32, 3] # input image shape [batch_size, image_height, image_width, image_channels]
         self.inputImage = tf.placeholder(dtype = tf.float32, shape = input_shape, name = 'real_images')
         self.inputCode = tf.placeholder(dtype = tf.float32, shape = [None, 12], name = 'code_vector') # input code shape [batch_size, code_dim]
-        self.inputNoise = tf.placeholder(dtype = tf.float32, shape = [None, 62], name = 'noise_vector') # input noise shape [batch_size, noise_dim]
+        self.inputNoise = tf.placeholder(dtype = tf.float32, shape = [None, 124], name = 'noise_vector') # input noise shape [batch_size, noise_dim]
         self.isTraining = tf.placeholder(dtype = tf.bool, name = 'training_flag')
         
         
         # Create test placeholders
         self.testCategory = tf.placeholder(dtype = tf.int32, shape = [], name = 'testCategory')
-        self.testImgs = tf.placeholder(dtype = tf.float32, shape = [64, 28, 28, 1], name = 'testImages')
-        self.testImgMosaics = tf.placeholder(dtype = tf.float32, shape = [10, 224, 224, 1], name = 'testImageMosaics')
+        self.testImgs = tf.placeholder(dtype = tf.float32, shape = [64, 32, 32, 3], name = 'testImages')
+        self.testImgMosaics = tf.placeholder(dtype = tf.float32, shape = [10, 32*8,32*8, 3], name = 'testImageMosaics')
         
         
         # Define generator for test variables
@@ -264,7 +265,7 @@ class infoGAN(object):
                 
                 ### ----------------------------------------------------------
                 ### Test the current model
-                imageMosaics = np.empty([10, 224, 224, 1], dtype = 'f')
+                imageMosaics = np.empty([10, 32*8, 32*8, 3], dtype = 'f')
                 for n_category in range(10):
                     # Generate a batch of test codes and noise with category n_category
                     codes_test, noise_test = sess.run([testCodes_generator, test_noise_generator], 
@@ -292,7 +293,7 @@ class infoGAN(object):
                 
                 ### ----------------------------------------------------------
                 ### Update model
-                print('Running training epoch no: ', epoch_n)
+                print('%s - Running training epoch no: %s' % (datetime.datetime.now(), str(epoch_n)))
                 while True:
                     try:
                         # Get training bathc from the dataset
@@ -355,7 +356,7 @@ class infoGAN(object):
         code = tf.one_hot(lbl_proto,10)
         code = tf.concat([code, tf.random_uniform([2], minval = -1, maxval = 1)],0)
         
-        noise = tf.random_uniform([62], minval = -1, maxval = 1)
+        noise = tf.random_uniform([124], minval = -1, maxval = 1)
         
         return image, code, noise
     
@@ -381,6 +382,6 @@ class infoGAN(object):
         cont_code = tf.stack([cont_code1,cont_code2], axis = 1)
         
         code = tf.concat([cat_code, cont_code], axis = 1)
-        noise = tf.zeros([n_totImage,62])
+        noise = tf.zeros([n_totImage,124])
         
         return code, noise
