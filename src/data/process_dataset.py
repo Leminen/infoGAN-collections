@@ -1,5 +1,6 @@
 
 import os
+import sys
 import numpy as np
 import scipy.io
 import zipfile
@@ -11,6 +12,7 @@ import math
 import tensorflow as tf
 from tensorflow.contrib.learn.python.learn.datasets import mnist
 
+sys.path.append('/home/leminen/Documents/RoboWeedMaps/GAN/weed-gan-v1')
 import src.utils as utils
 
 def process_dataset(dataset):
@@ -20,9 +22,13 @@ def process_dataset(dataset):
     if dataset == 'MNIST':
         # Download the MNIST dataset from source and save it in 'data/raw/mnist'
         data = mnist.read_data_sets('data/raw/MNIST', reshape=False)
-        _convert_to_tfrecord(data.train.images, data.train.labels, dataset, 'train')
-        _convert_to_tfrecord(data.validation.images, data.validation.labels, dataset, 'validation')
-        _convert_to_tfrecord(data.test.images, data.test.labels, dataset, 'test')
+
+        train_images = (data.train.images - 0.5) / 0.5
+        _convert_to_tfrecord(train_images, data.train.labels, dataset, 'train')
+        validation_images = (data.validation.images - 0.5) / 0.5
+        _convert_to_tfrecord(validation_images, data.validation.labels, dataset, 'validation')
+        test_images = (data.test.images - 0.5) / 0.5
+        _convert_to_tfrecord(test_images, data.test.labels, dataset, 'test')
     
     if dataset == 'SVHN':
         dirRaw = 'data/raw/SVHN/'
@@ -155,7 +161,7 @@ def _scaleImages(listImages, desired_size = 224):
     
     return listImagesNew
 
-#process_dataset('PSD_Segmented')
+# process_dataset('MNIST')
 
 #excludeList = ['Black-grass', 'Common Chickweed', 'Loose Silky-bent']    
 #

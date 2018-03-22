@@ -1,7 +1,22 @@
-project_template_deeplearning
+infoGAN-collections
 ==============================
 
-A project template for deep learning projects using TensorFlow. The template is based on the project structure of Cookiecutter for data science.
+Project containing different infoGAN implementations:
+
+- infoGAN
+    Default infoGAN implementation modeling the MNIST dataset
+- infoGAN_rgb
+    Modified infoGAN implementaion used for modeling artificial coloured digits of the MNIST dataset
+
+Run the code with the following command
+'''
+python main.py [--make_dataset] [--process_dataset] [--train_model]
+'''
+
+For more information about run options use:
+'''
+python main.py -h
+'''
 
 Project Organization
 ------------
@@ -10,8 +25,6 @@ Project Organization
     ├── main.py            <- Makefile with commands like `make_data` or `make train`
     ├── README.md          <- The top-level README for developers using this project.
     ├── data
-    │   ├── external       <- Data from third party sources.
-    │   ├── interim        <- Intermediate data that has been transformed.
     │   ├── processed      <- The final, canonical data sets for modeling.
     │   └── raw            <- The original, immutable data dump.
     │

@@ -25,9 +25,10 @@ ds = tf.contrib.distributions
 
 leaky_relu = lambda net: tf.nn.leaky_relu(net, alpha=0.01)
 
-class infoGAN(object):
+class infoGAN_rgb(object):
     def __init__(self):
-        self.model = 'infoGAN'
+        # Setup model folders
+        self.model = 'infoGAN_rgb'
         self.dir_logs        = 'models/' + self.model + '/logs'
         self.dir_checkpoints = 'models/' + self.model + '/checkpoints'
         self.dir_results     = 'models/' + self.model + '/results'
@@ -36,9 +37,10 @@ class infoGAN(object):
         utils.checkfolder(self.dir_logs)
         utils.checkfolder(self.dir_results)
 
+        #
         self.unstructured_noise_dim = 62
         self.categorical_noise_dim = 10
-        self.continuous_noise_dim = 2
+        self.continuous_noise_dim = 3
  
     def __generator(self, inputs, categorical_dim, weight_decay = 2.5e-5, is_training = True):
         """InfoGAN discriminator network on MNIST digits.
@@ -76,7 +78,7 @@ class infoGAN(object):
             net = layers.conv2d_transpose(net, 32, [4, 4], stride = 2)
             # Make sure that generator output is in the same range as `inputs`
             # ie [-1, 1].
-            net = layers.conv2d(net, 1, 4, normalizer_fn=None, activation_fn=tf.tanh)
+            net = layers.conv2d(net, 3, 4, normalizer_fn=None, activation_fn=tf.tanh)
     
             return net
     
@@ -139,11 +141,10 @@ class infoGAN(object):
     
         Returns:
         """
-
         # Create input placeholders
         self.real_images = tf.placeholder(
             dtype = tf.float32, 
-            shape = [None,28,28,1], 
+            shape = [None,28,28,3], 
             name = 'input_images')
         self.unstructured_noise = tf.placeholder(
             dtype = tf.float32, 
@@ -275,6 +276,10 @@ class infoGAN(object):
         self._create_optimizer()
         self._create_summaries()
 
+        ### From first TFGAN implementation
+        # global_step = tf.train.get_or_create_global_step()
+        # train_step_fn = tfgan.get_sequential_train_steps()
+
         with tf.Session() as sess:
             # Initialize all model Variables.
             sess.run(tf.global_variables_initializer())
@@ -329,8 +334,8 @@ class infoGAN(object):
                                         self.continuous_noise:   cont_noise_batch})
 
                         writer.add_summary(summaryLoss, global_step=interationCnt)
-                        interationCnt += 1
-
+                        interationCnt += 1                        
+                        
                     except tf.errors.OutOfRangeError:
                         # Test current model
                         summaryImg = sess.run(self.summary_imgCat_op)
@@ -343,7 +348,6 @@ class infoGAN(object):
                 # Save model variables to checkpoint
                 if epoch_n % 1 == 0:
                     saver.save(sess,os.path.join(self.dir_checkpoints, self.model + '.model'), global_step=epoch_n)
-            
     
     def predict(self):
         """ Run prediction of the network
@@ -352,7 +356,6 @@ class infoGAN(object):
         Returns:
         """
         
-        # not implemented yet
         with tf.Session() as sess:
             sess.run(tf.global_variables_initializer())
     
@@ -366,12 +369,24 @@ class infoGAN(object):
         Returns:
         """
     
-        image = image_proto
+        # scalar = tf.random_uniform([1], minval = 0, maxval = 1)
+        # scalar = tf.reshape(scalar, [])
+        # mask = tf.convert_to_tensor([scalar, 1-scalar, scalar], dtype=tf.float32)
+        # scalar = tf.concat(([1],tf.random_uniform([2], minval = 0, maxval = 1)),0)
+        scalar = tf.random_uniform([3],minval = 0, maxval = 1)
+        mask = tf.tile(scalar,[28*28])
+        mask = tf.reshape(mask,[28,28,3])
+
+        image = tf.image.grayscale_to_rgb(image_proto)
+        image = image + 1
+        image = tf.multiply(image, mask)
+        image = image - 1
+        # image = tf.div((image - 0.5),0.5) 
 
         unstructured_noise = tf.random_normal([self.unstructured_noise_dim])
 
         categorical_noise = lbl_proto
-        continuous_noise = tf.random_uniform([self.continuous_noise_dim], minval = -1, maxval = 1)
+        continuous_noise = (scalar * 2) - 1 #tf.random_uniform([self.continuous_noise_dim], minval = -1, maxval = 1)
     
         return image, unstructured_noise, categorical_noise, continuous_noise
     
@@ -400,5 +415,5 @@ class infoGAN(object):
 
         return unstructured_noise, categorical_noise, continuous_noise
 
-# model = infoGAN()
-# model.train('MNIST', 25, 32)
+# model = infoGAN_rgb()
+# model.train('MNIST', 40, 32)

@@ -20,6 +20,7 @@ from src.data import make_dataset
 from src.data import process_dataset
 from src.models.BasicModel import BasicModel
 from src.models.infoGAN import infoGAN
+from src.models.infoGAN_rbg import infoGAN_rgb
 from src.models.infoGAN_32x32 import infoGAN_32x32
 from src.models.weedGAN import weedGAN
 from src.visualization import visualize
@@ -58,24 +59,33 @@ def parse_args():
     parser.add_argument('--model', 
                         type=str, 
                         default='infoGAN', 
-                        choices=['infoGAN', 'infoGAN_32x32'],
-                        required = True,
+                        choices=['infoGAN', 
+                                 'infoGAN_rgb'],#, 'infoGAN_32x32'],
+                        #required = True,
                         help='The name of the network model')
 
     parser.add_argument('--dataset', 
                         type=str, default='MNIST', 
                         choices=['MNIST',
                                  'SVHN'],
-                        required = True,
+                        #required = True,
                         help='The name of dataset')
+
+    parser.add_argument('--epoch_max', 
+                        type=int, default='20', 
+                        help='The name of dataset')
+
+    parser.add_argument('--batch_size', 
+                        type=int, default='32', 
+                        help='The name of dataset')                    
     
 # ----------------------------------------------------------------------------------------------------------------------
 # Define the arguments for the training
 # ----------------------------------------------------------------------------------------------------------------------
 
-    parser.add_argument('--hparams',
-                        type=str,
-                        help='Comma separated list of "name=value" pairs.')
+    # parser.add_argument('--hparams',
+    #                     type=str,
+    #                     help='Comma separated list of "name=value" pairs.')
 
 
     return check_args(parser.parse_args())
@@ -105,6 +115,8 @@ def main():
     if args.make_dataset:
         print('%s - Fetching raw dataset: %s'  % (datetime.datetime.now(), args.dataset))
         make_dataset.make_dataset(args.dataset)
+
+        print(args.epoch_max)
         
     # Make dataset
     if args.process_dataset:
@@ -115,17 +127,28 @@ def main():
     if args.train_model:
         print('%s - Configuring and training Network: %s' % (datetime.datetime.now(), args.model))
         
+
         if args.model == 'BasicModel':
             model = BasicModel()
-            model.train(dataset_str = args.dataset, epoch_N = 25, batch_N = 64)
+            model.train(dataset_str = args.dataset, epoch_N = args.epoch_max, batch_N = 64)
                
         elif args.model == 'infoGAN':
             model = infoGAN()
-            model.train(dataset_str = args.dataset, epoch_N = 25, batch_N = 64)
+            model.train(dataset_str = args.dataset, 
+                        epoch_N = args.epoch_max, 
+                        batch_size = 32)
+        
+        elif args.model == 'infoGAN_rgb':
+            model = infoGAN_rgb()
+            model.train(dataset_str = args.dataset, 
+                        epoch_N = args.epoch_max, 
+                        batch_size = args.batch_size)
         
         elif args.model == 'infoGAN_32x32':
             model = infoGAN_32x32()
-            model.train(dataset_str = args.dataset, epoch_N = 100, batch_N = 64)
+            model.train(dataset_str = args.dataset, 
+                        epoch_N = args.epoch_max, 
+                        batch_N = args.batch_size)
         
         # elif args.model == 'weedGAN':
         #     model = weedGAN()
