@@ -136,7 +136,7 @@ def main():
             model = infoGAN()
             model.train(dataset_str = args.dataset, 
                         epoch_N = args.epoch_max, 
-                        batch_size = 32)
+                        batch_size = args.batch_size)
         
         elif args.model == 'infoGAN_rgb':
             model = infoGAN_rgb()
