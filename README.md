@@ -4,19 +4,21 @@ infoGAN-collections
 Project containing different infoGAN implementations:
 
 - infoGAN
-    Default infoGAN implementation modeling the MNIST dataset
+    (Default infoGAN implementation modeling the MNIST dataset)
 - infoGAN_rgb
-    Modified infoGAN implementaion used for modeling artificial coloured digits of the MNIST dataset
+    (Modified infoGAN implementaion used for modeling artificial coloured digits of the MNIST dataset)
 
-Run the code with the following command
-'''
+Run the code with the following command:
+
+```
 python main.py [--make_dataset] [--process_dataset] [--train_model]
-'''
+```
 
 For more information about run options use:
-'''
+
+```
 python main.py -h
-'''
+```
 
 Project Organization
 ------------
