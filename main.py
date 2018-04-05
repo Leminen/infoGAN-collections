@@ -22,7 +22,6 @@ from src.models.BasicModel import BasicModel
 from src.models.infoGAN import infoGAN
 from src.models.infoGAN_rbg import infoGAN_rgb
 from src.models.infoGAN_32x32 import infoGAN_32x32
-from src.models.weedGAN import weedGAN
 from src.visualization import visualize
 
 
@@ -60,7 +59,8 @@ def parse_args():
                         type=str, 
                         default='infoGAN', 
                         choices=['infoGAN', 
-                                 'infoGAN_rgb'],#, 'infoGAN_32x32'],
+                                 'infoGAN_rgb',
+                                 'infoGAN_32x32'],
                         #required = True,
                         help='The name of the network model')
 
@@ -115,8 +115,6 @@ def main():
     if args.make_dataset:
         print('%s - Fetching raw dataset: %s'  % (datetime.datetime.now(), args.dataset))
         make_dataset.make_dataset(args.dataset)
-
-        print(args.epoch_max)
         
     # Make dataset
     if args.process_dataset:
@@ -148,7 +146,7 @@ def main():
             model = infoGAN_32x32()
             model.train(dataset_str = args.dataset, 
                         epoch_N = args.epoch_max, 
-                        batch_N = args.batch_size)
+                        batch_size = args.batch_size)
         
         # elif args.model == 'weedGAN':
         #     model = weedGAN()

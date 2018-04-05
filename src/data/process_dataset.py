@@ -37,6 +37,7 @@ def process_dataset(dataset):
                 mat = scipy.io.loadmat(dirRaw + file)
                 images = np.transpose(mat['X'], (3, 0, 1, 2))
                 images = np.array(images, dtype = 'f') / 255
+                images = (images - 0.5) / 0.5
                 labels = np.mod(mat['y'][:,0],10)
                 _convert_to_tfrecord(images, labels, dataset, file[:-4])
 

@@ -378,9 +378,9 @@ class infoGAN_rgb(object):
         mask = tf.reshape(mask,[28,28,3])
 
         image = tf.image.grayscale_to_rgb(image_proto)
-        image = image + 1
+        # image = image + 1
         image = tf.multiply(image, mask)
-        image = image - 1
+        # image = image - 1
         # image = tf.div((image - 0.5),0.5) 
 
         unstructured_noise = tf.random_normal([self.unstructured_noise_dim])
